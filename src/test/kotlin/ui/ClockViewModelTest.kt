@@ -361,6 +361,18 @@ class ClockViewModelTest {
     }
 
     @Test
+    fun `start-delay-save-delay-pause-restore, whiteTime is restored`() = runTest {
+        clockViewModel.start()
+        delay(delayTime)
+        clockViewModel.save()
+        delay(delayTime)
+        clockViewModel.pause()
+        clockViewModel.restore(isDecimalRestored = true)
+
+        assertEquals(initialTime - delayTime, clockViewModel.whiteTime.value)
+    }
+
+    @Test
     fun `start-wait, clockState is FINISHED`() = runTest {
         clockViewModel.start()
         delay(initialTime + 1.milliseconds)

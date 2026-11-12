@@ -188,11 +188,14 @@ class ClockViewModel(
                 savedIncrementSeconds = increment.inWholeSeconds.toFloat()
             }
 
-            else -> currentTime.toComponents { minutes, seconds, nanoseconds ->
-                savedTimeMinutes = minutes.toFloat()
-                savedTimeSeconds = seconds.toFloat() + nanoseconds.toFloat() / 1_000_000_000F
-            }
+            ClockState.TICKING -> (endMark - timeSource.markNow()).toComponents(::saveTime)
+            else -> currentTime.toComponents(::saveTime)
         }
+    }
+
+    private fun saveTime(minutes: Long, seconds: Int, nanoseconds: Int) {
+        savedTimeMinutes = minutes.toFloat()
+        savedTimeSeconds = seconds.toFloat() + nanoseconds.toFloat() / 1_000_000_000F
     }
 
     fun restore(
