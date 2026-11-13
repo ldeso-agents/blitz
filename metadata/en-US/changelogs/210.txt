@@ -1,1 +1,2 @@
 • Fix the text size not updating when the window is resized
+• Fix the back button switching players instead of only pausing the clock

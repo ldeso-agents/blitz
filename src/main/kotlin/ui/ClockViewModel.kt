@@ -25,6 +25,9 @@ import kotlin.time.TimeSource
 /**
  * ViewModel holding state and logic for the chess clock screen.
  *
+ * Each function expects to be called only in the situations where the screen calls it, such as
+ * [play] while the clock is ticking and [undo] right after [play].
+ *
  * @param[durationMinutes] Initial time for each player in minutes.
  * @param[incrementSeconds] Time increment in seconds.
  * @param[tickPeriodMillis] Period between ticks in milliseconds.

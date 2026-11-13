@@ -3,9 +3,10 @@
 
 ## 2.1.0 – Unreleased
 
-### Bug Fix
+### Bug Fixes
 
 - Fix the text size not updating when the window is resized
+- Fix the back button switching players instead of only pausing the clock
 
 ### Note
 

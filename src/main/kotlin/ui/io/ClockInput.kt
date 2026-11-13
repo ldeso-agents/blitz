@@ -16,6 +16,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.AwaitPointerEventScope
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.LayoutDirection
@@ -33,6 +36,7 @@ import net.leodesouza.blitz.ui.models.ClockState
  * @param[layoutDirection] Whether the layout direction is left-to-right or right-to-left.
  * @param[start] Callback called to start the clock.
  * @param[play] Callback called to switch to the next player.
+ * @param[release] Callback called when the press that switched to the next player is released.
  * @param[save] Callback called to save the time or configuration.
  * @param[restore] Callback called to restore the saved time or configuration.
  */
@@ -45,6 +49,7 @@ fun Modifier.clockInput(
     layoutDirection: LayoutDirection,
     start: () -> Unit,
     play: () -> Unit,
+    release: () -> Unit,
     save: () -> Unit,
     restore: (addMinutes: Float, addSeconds: Float) -> Unit,
 ): Modifier = clickable(interactionSource = null, indication = null) {
@@ -53,16 +58,20 @@ fun Modifier.clockInput(
         isBusy = isBusyProvider(),
         start = start,
         play = play,
+        release = release,
     )
 }
     .pointerInput(Unit) {
         awaitEachGesture {
-            onPressEvent(
+            val isPlayed = onPressEvent(
                 pressEvent = awaitPointerEvent().changes.first(),
                 clockState = clockStateProvider(),
                 isBusy = isBusyProvider(),
                 play = play,
             )
+            if (isPlayed && awaitRelease()) {
+                release()
+            }
         }
     }
     .onKeyEvent {
@@ -123,14 +132,23 @@ fun Modifier.clockInput(
  * @param[isBusy] Whether the clock is currently busy.
  * @param[start] Callback called to start the clock.
  * @param[play] Callback called to switch to the next player.
+ * @param[release] Callback called when the press that switched to the next player is released.
  */
 private fun onClickEvent(
-    clockState: ClockState, isBusy: Boolean, start: () -> Unit, play: () -> Unit,
+    clockState: ClockState,
+    isBusy: Boolean,
+    start: () -> Unit,
+    play: () -> Unit,
+    release: () -> Unit,
 ) {
     if (!isBusy) {
         when (clockState) {
             ClockState.PAUSED, ClockState.SOFT_RESET, ClockState.FULL_RESET -> start()
-            ClockState.TICKING -> play()
+            ClockState.TICKING -> run {
+                play()
+                release()  // clicks only happen once released
+            }
+
             ClockState.FINISHED -> Unit
         }
     }
@@ -143,14 +161,31 @@ private fun onClickEvent(
  * @param[clockState] Current state of the clock.
  * @param[isBusy] Whether the clock is currently busy.
  * @param[play] Callback called to switch to the next player.
+ * @return Whether the press switched to the next player.
  */
 private fun onPressEvent(
     pressEvent: PointerInputChange, clockState: ClockState, isBusy: Boolean, play: () -> Unit,
-) {
+): Boolean {
     if (!isBusy && clockState == ClockState.TICKING) {
         pressEvent.consume()
         play()
+        return true
+    } else {
+        return false
     }
+}
+
+/**
+ * Wait until all pointers are up, and return whether they were released rather than taken over by
+ * the system, as happens when a back gesture starts from a press on the clock.
+ */
+private suspend fun AwaitPointerEventScope.awaitRelease(): Boolean {
+    var event: PointerEvent
+    do {
+        // Before the clock handles an event, only pointers taken over by the system are consumed.
+        event = awaitPointerEvent(PointerEventPass.Initial)
+    } while (event.changes.any { it.pressed })
+    return event.changes.none { it.isConsumed }
 }
 
 /**

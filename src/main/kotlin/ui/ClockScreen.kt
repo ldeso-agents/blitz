@@ -78,6 +78,8 @@ fun ClockScreen(
     }
     var backEventProgress by remember { mutableFloatStateOf(0F) }
     var backEventAction by remember { mutableStateOf(BackAction.PAUSE) }
+    var isMovePending by remember { mutableStateOf(false) }  // played by a press not released yet
+    var isMoveUndone by remember { mutableStateOf(false) }  // taken back by the back gesture
     val isBusy by remember { derivedStateOf { backEventProgress != 0F } }
 
     OrientationHandler { orientation = it }
@@ -94,8 +96,12 @@ fun ClockScreen(
     AnimatedBackHandler(
         enabledProvider = { clockState != ClockState.FULL_RESET },
         onBackStart = {
+            // A press that turns into a back gesture is not a move, but other back events are not
+            // preceded by such a press, so they leave the last move as it is.
+            isMoveUndone = isMovePending && clockState == ClockState.TICKING
+            isMovePending = false
             backEventAction = if (clockState == ClockState.TICKING) {
-                clockViewModel.undo()
+                if (isMoveUndone) clockViewModel.undo()
                 clockViewModel.save()
                 BackAction.PAUSE
             } else {
@@ -113,7 +119,7 @@ fun ClockScreen(
             }
         },
         onCancellation = {
-            if (backEventAction == BackAction.PAUSE && clockState == ClockState.TICKING) {
+            if (isMoveUndone && clockState == ClockState.TICKING) {
                 clockViewModel.play()
             }
         },
@@ -139,8 +145,10 @@ fun ClockScreen(
                 },
                 play = {
                     clockViewModel.play()
+                    isMovePending = true
                     clockFeedback(audioManager, haptics)
                 },
+                release = { isMovePending = false },
                 save = clockViewModel::save,
                 restore = clockViewModel::restore,
             ),
